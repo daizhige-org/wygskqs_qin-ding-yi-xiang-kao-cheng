@@ -29,6 +29,14 @@ lualatex 欽定儀象考成.tex
 
 排出 878 葉，版心居中，一葉十六行。正文用字全在 TW-Kai 之內，無缺字。
 
+`.github/workflows/build.yml` 在 `texlive/texlive:latest`（每日自上游重建）裡
+以當天的 LuaTeX 排一遍，PDF 與日誌放進 artifacts，保留 30 天。它同時把兩件
+靜默失敗變成硬錯誤：日誌出現 `Missing character`，或葉數不是 878。
+
+luatex-cn 須取 `main`（最新 release v0.4.1 尚無本書所需的修正），且要裝進
+`TEXMFHOME/tex/lualatex/`：放進 `tex/latex/` 時 `.lua` 找不著，版式引擎會
+靜默退化，正文塊一結束就報 `\prevdepth` 錯。
+
 ## 私用區字形的處理
 
 原始資料把 15 個常用字的寫本字形另置於私用區，共 208 處。這些**並非

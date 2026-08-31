@@ -1,0 +1,97 @@
+# 用最新版 LuaTeX 排出 PDF，成品放進 artifacts。
+#
+# 跑在 texlive/texlive:latest 裡 —— 該映像每日自 TeX Live 上游重建，
+# 所以「最新版」不是釘死的版本號，是當天的 LuaTeX。
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lualatex:
+    runs-on: ubuntu-latest
+    container: texlive/texlive:latest
+
+    env:
+      # 版式引擎（ltc-guji 文檔類）。取 main 而非最新 release：
+      # v0.4.1 尚無「連續兩個正文塊不叠印」等修正，本書排不出來。
+      LUATEX_CN_REF: main
+      # 正文字體，URL 與 SHA-256 取自 luatex-cn 的 scripts/font-manifest.json
+      TW_KAI_URL: https://raw.githubusercontent.com/free-fonts-npm/TW-CNS11643-Fonts/de5bd2e37371798f996bac11ea8cf9d3a411749e/2026-05-05/Fonts_Kai/TW-Kai-98_1.ttf
+      TW_KAI_SHA256: c206333edcc3c8c86ee547da4c78ad1c8f7ec2670a2b550a768532258f75806a
+
+    steps:
+      - name: 記下 LuaTeX 版本
+        run: |
+          luatex --version | head -2
+          lualatex --version | head -2
+
+      - name: 補齊 curl / git
+        run: |
+          if ! command -v curl >/dev/null || ! command -v git >/dev/null; then
+            apt-get update
+            apt-get install -y --no-install-recommends curl git ca-certificates
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: 裝 luatex-cn
+        run: |
+          set -eux
+          TEXMFHOME="$(kpsewhich -var-value TEXMFHOME)"
+          echo "TEXMFHOME=$TEXMFHOME" >> "$GITHUB_ENV"
+          # 必須是 tex/lualatex/：放進 tex/latex/ 時 .lua 找不著，
+          # 版式引擎靜默退化，正文塊一結束就 \prevdepth 報錯
+          mkdir -p "$TEXMFHOME/tex/lualatex"
+          # 只取 tex/：整倉庫連範例 PDF 有 94 MB，稀疏檢出只 2.5 MB
+          git clone --depth 1 --filter=blob:none --sparse \
+            --branch "$LUATEX_CN_REF" https://github.com/open-guji/luatex-cn.git /tmp/luatex-cn
+          git -C /tmp/luatex-cn sparse-checkout set tex
+          git -C /tmp/luatex-cn rev-parse --short HEAD
+          cp -r /tmp/luatex-cn/tex "$TEXMFHOME/tex/lualatex/luatex-cn"
+          texhash "$TEXMFHOME" || true
+          kpsewhich ltc-guji.cls
+
+      - name: 裝 TW-Kai
+        run: |
+          set -eux
+          FONTDIR="$TEXMFHOME/fonts/truetype/luatex-cn"
+          mkdir -p "$FONTDIR"
+          curl -fsSL -o "$FONTDIR/TW-Kai-98_1.ttf" "$TW_KAI_URL"
+          echo "$TW_KAI_SHA256  $FONTDIR/TW-Kai-98_1.ttf" | sha256sum -c -
+          luaotfload-tool --update --force || true
+
+      - name: 排版
+        run: lualatex -interaction=nonstopmode -halt-on-error 欽定儀象考成.tex
+
+      # 缺字型時 LuaTeX 照樣編譯成功，字直接消失 —— 是靜默失敗，這裡把它變成硬錯誤。
+      - name: 查缺字
+        run: |
+          if grep -i "Missing character" 欽定儀象考成.log; then
+            echo "::error::日誌裡有 Missing character，PDF 有字沒排出來"
+            exit 1
+          fi
+          echo "無缺字"
+
+      - name: 查葉數
+        run: |
+          set -eu
+          PAGES=$(sed -n 's/.*Output written on .*(\([0-9]*\) pages.*/\1/p' 欽定儀象考成.log)
+          echo "排出 $PAGES 葉"
+          test "$PAGES" = 878
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 欽定儀象考成-pdf
+          path: |
+            欽定儀象考成.pdf
+            欽定儀象考成.log
+          if-no-files-found: warn
+          retention-days: 30
