@@ -1,0 +1,10 @@
+# LuaTeX 排版產物
+*.aux
+*.log
+*.out
+*.toc
+*.pdf
+*-layout.json
+
+# macOS
+.DS_Store
