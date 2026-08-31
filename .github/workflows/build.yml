@@ -84,7 +84,7 @@ jobs:
           set -eu
           PAGES=$(sed -n 's/.*Output written on .*(\([0-9]*\) pages.*/\1/p' 欽定儀象考成.log)
           echo "排出 $PAGES 葉"
-          test "$PAGES" = 878
+          test "$PAGES" = 875
 
       - uses: actions/upload-artifact@v4
         if: always()

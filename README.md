@@ -4,13 +4,13 @@
 
 本目錄是這部書的**版式復刻源文件** —— 用 LuaTeX 重排，而非重新錄入，也非 OCR。
 行的起始格、每行字數、雙行小注的左右列、圖在葉上的位置，都是自文淵閣四庫全書
-電子版的版式記錄直接讀出的，不靠文意推斷。共 878 葉。
+電子版的版式記錄直接讀出的，不靠文意推斷。共 875 葉。
 
 ## 內容
 
 ```
 欽定儀象考成.tex   由解碼工具自版式記錄生成，勿手改
-img/               711 個 PNG，原書的圖版與插圖
+img/               710 個 PNG，原書的圖版與插圖
                    0281.png 為葉 281 的圖；0281_1.png 為同葉的第二塊圖
 README.md          用法、校驗結果、私用區碼位一覽、來源與權利
 LICENSE            AGPL-3.0 全文
@@ -27,11 +27,11 @@ LICENSE            AGPL-3.0 全文
 lualatex 欽定儀象考成.tex
 ```
 
-排出 878 葉，版心居中，一葉十六行。正文用字全在 TW-Kai 之內，無缺字。
+排出 875 葉，版心居中，一葉十六行。正文用字全在 TW-Kai 之內，無缺字。
 
 `.github/workflows/build.yml` 在 `texlive/texlive:latest`（每日自上游重建）裡
 以當天的 LuaTeX 排一遍，PDF 與日誌放進 artifacts，保留 30 天。它同時把兩件
-靜默失敗變成硬錯誤：日誌出現 `Missing character`，或葉數不是 878。
+靜默失敗變成硬錯誤：日誌出現 `Missing character`，或葉數不是 875。
 
 luatex-cn 須取 `main`（最新 release v0.4.1 尚無本書所需的修正），且要裝進
 `TEXMFHOME/tex/lualatex/`：放進 `tex/latex/` 時 `.lua` 找不著，版式引擎會
