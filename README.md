@@ -56,7 +56,8 @@ luatex-cn 須取 `main`（最新 release v0.4.1 尚無本書所需的修正）�
 現已全部換成標準碼位。對應字主要取自
 [wyg-sikuquanshu-decoder](https://github.com/daizhige-org/wyg-sikuquanshu-decoder)
 的 `data/font/skchar_pua.json` —— 即維基文庫 `Module:SKchar` 的考訂本字，
-15 個碼位它給出 12 個；`U+EEEE` 該檔留空，本專案另行考訂為 `𩆝` U+2919D。
+15 個碼位它給出 12 個；`U+EEEE` 該檔留空，本專案另行考訂為 `𩆝` U+2919D，
+已回填至該倉庫的 `data/font/extra/欽定儀象考成.json`。
 
 於是 **13 個有專屬碼位，存形與可檢索兼得**；餘 2 個 Unicode 未收，退取常用字。
 
