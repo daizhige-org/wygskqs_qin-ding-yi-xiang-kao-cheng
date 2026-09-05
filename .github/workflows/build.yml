@@ -90,39 +90,44 @@ jobs:
 
           luaotfload-tool --update --force || true
 
+      # 兩版一起排：黑白版是定本，彩色版是四庫全書原本的朱欄墨字。
+      # 差別只在文檔類選項與底色，版式、葉數、書籤完全相同。
+      - name: 派生彩色版
+        run: python3 tools/make_colored.py 欽定儀象考成.tex -o 欽定儀象考成-彩色.tex
+
       - name: 排版
-        run: lualatex -interaction=nonstopmode -halt-on-error 欽定儀象考成.tex
-
-      # 缺字型時 LuaTeX 照樣編譯成功，字直接消失 —— 是靜默失敗，這裡把它變成硬錯誤。
-      - name: 查缺字
-        run: |
-          if grep -i "Missing character" 欽定儀象考成.log; then
-            echo "::error::日誌裡有 Missing character，PDF 有字沒排出來"
-            exit 1
-          fi
-          echo "無缺字"
-
-      - name: 查葉數
         run: |
           set -eu
-          PAGES=$(sed -n 's/.*Output written on .*(\([0-9]*\) pages.*/\1/p' 欽定儀象考成.log)
-          echo "排出 $PAGES 葉"
-          test "$PAGES" = 875
+          for f in 欽定儀象考成 欽定儀象考成-彩色; do
+            echo "::group::$f"
+            lualatex -interaction=nonstopmode -halt-on-error "$f.tex"
+            echo "::endgroup::"
+          done
 
-      - name: 加書籤
+      # 三項靜默失敗轉為硬錯誤，兩版各查一遍：
+      #   缺字型時 LuaTeX 照樣編譯成功，字直接消失，只留 Missing character 警告
+      #   葉數必須是 875
+      #   書籤 37 條 = 序 + 奏議 + 職名 + 目録 + 提要 + 卷首上下 + 卷一至卷三十
+      - name: 加書籤並查驗
         run: |
           set -eu
-          python3 tools/pdf_bookmarks.py 欽定儀象考成.pdf 欽定儀象考成-bookmarks.txt
+          for f in 欽定儀象考成 欽定儀象考成-彩色; do
+            echo "::group::$f"
+            if grep -i "Missing character" "$f.log"; then
+              echo "::error::$f 的日誌裡有 Missing character，PDF 有字沒排出來"
+              exit 1
+            fi
+            PAGES=$(sed -n 's/.*Output written on .*(\([0-9]*\) pages.*/\1/p' "$f.log")
+            echo "排出 $PAGES 葉，無缺字"
+            test "$PAGES" = 875
 
-      # 書籤是後處理加的，頁數與內容都不該變；37 = 序 + 奏議 + 職名 + 目録
-      # + 提要 + 卷首上下 + 卷一至卷三十。
-      - name: 查書籤
-        run: |
-          set -eu
-          N=$(python3 -c "import pikepdf,sys; p=pikepdf.open('欽定儀象考成.pdf'); \
-              print(len(list(p.open_outline().root)), len(p.pages))")
-          echo "書籤數 / 葉數：$N"
-          test "$N" = "37 875"
+            python3 tools/pdf_bookmarks.py "$f.pdf" "$f-bookmarks.txt"
+            N=$(python3 -c "import pikepdf; p=pikepdf.open('$f.pdf'); \
+                print(len(list(p.open_outline().root)), len(p.pages))")
+            echo "書籤數 / 葉數：$N"
+            test "$N" = "37 875"
+            echo "::endgroup::"
+          done
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -130,6 +135,8 @@ jobs:
           name: 欽定儀象考成-pdf
           path: |
             欽定儀象考成.pdf
+            欽定儀象考成-彩色.pdf
             欽定儀象考成.log
+            欽定儀象考成-彩色.log
           if-no-files-found: warn
           retention-days: 30

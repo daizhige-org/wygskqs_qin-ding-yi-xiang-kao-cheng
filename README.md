@@ -10,7 +10,7 @@
 
 ```
 欽定儀象考成.tex   由解碼工具自版式記錄生成，勿手改
-tools/             pdf_bookmarks.py，給排好的 PDF 加書籤
+tools/             make_colored.py 派生彩色版，pdf_bookmarks.py 加書籤
 img/               710 個 PNG，原書的圖版與插圖
                    0281.png 為葉 281 的圖；0281_1.png 為同葉的第二塊圖
 README.md          用法、校驗結果、私用區碼位一覽、來源與權利
@@ -43,6 +43,17 @@ lualatex 欽定儀象考成.tex
 python3 tools/pdf_bookmarks.py 欽定儀象考成.pdf 欽定儀象考成-bookmarks.txt
 ```
 
+成品有兩版。上面排的是**黑白版**（定本）；再排一次**彩色版**，即原書的
+朱欄墨字：
+
+```bash
+python3 tools/make_colored.py 欽定儀象考成.tex -o 欽定儀象考成-彩色.tex
+lualatex 欽定儀象考成-彩色.tex
+python3 tools/pdf_bookmarks.py 欽定儀象考成-彩色.pdf 欽定儀象考成-彩色-bookmarks.txt
+```
+
+兩版版式、葉數、書籤完全相同，只差文檔類選項與底色。
+
 `-bookmarks.txt` 是排版時順帶寫出的，每葉一行「絕對頁碼 | 卷名」——
 `.tex` 導言區掛了個 `shipout/before` 鉤子逐葉記下。共 37 條書籤：序、奏議、
 職名、目録、提要、卷首上下、卷一至卷三十。
@@ -54,7 +65,21 @@ python3 tools/pdf_bookmarks.py 欽定儀象考成.pdf 欽定儀象考成-bookmar
 `.github/workflows/build.yml` 在 `texlive/texlive:latest`（每日自上游重建）裡
 以當天的 LuaTeX 排一遍，PDF 與日誌放進 artifacts，保留 30 天。它同時把兩件
 靜默失敗變成硬錯誤：日誌出現 `Missing character`，或葉數不是 875；加完書籤後
-再驗一次「37 條書籤 / 875 葉」。
+再驗一次「37 條書籤 / 875 葉」—— 兩版各查一遍，artifacts 裡也是兩版都有。
+
+### 彩色版的取捨
+
+用 luatex-cn 內建的 `四庫全書彩色` 模板（框線 RGB(180,95,75)、文字
+RGB(35,25,20)、底色 RGB(244,241,225)），但把底色改回白。
+
+因為本書 **701 / 875 葉帶原書的掃描圖版**，那是白底黑線的點陣圖，不隨模板
+著色。留著米色紙底，圖版就成了一塊白斑貼在米色紙上，邊緣有明顯接縫；改回
+白底則接得上。代價是失去紙色 —— 純排版的那 174 葉，米色底其實更像原書，
+想要就加 `--paper-tint`。
+
+還剩一處無解：685 葉的嵌圖星表，引擎畫的朱框套在圖版自己的黑框外，成了
+雙框。原書的框線本是朱欄、字是墨書，掃描件卻把兩者都印成黑的，要分開得把
+框線從筆畫裡切出來，那是圖像處理的活，不在排版層面。**所以黑白版仍是定本。**
 
 luatex-cn 須取 `main`（最新 release v0.4.1 尚無本書所需的修正），且要裝進
 `TEXMFHOME/tex/lualatex/`：放進 `tex/latex/` 時 `.lua` 找不著，版式引擎會
