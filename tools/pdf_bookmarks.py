@@ -20,8 +20,17 @@
 为什么不用 hyperref：\pdfbookmark 的锚点会被 luatex-cn 的网格引擎当成内容，
 实测《欽定儀象考成》整本从 875 葉变成 876 葉。书签不该改变版面，故后处理。
 
-书名前缀（「欽定儀象考成」「御製儀象考成」等）默认从卷名里剥掉，只留
-「序」「奏議」「卷一」这样的短名；--full-title 保留原样。
+书签标题统一成「<书名><篇名>」，书名取各卷共有的那个：
+
+  欽定儀象考成御製序   ← 原卷名是「御製儀象考成序」
+  欽定儀象考成奏議
+  欽定儀象考成卷一
+
+即先剥掉各卷名自带的书名，再一律冠上共有的书名。序的书名作「御製…」而非
+「欽定…」，剥掉后把「御製」二字留给篇名，于是成为「御製序」——「序」单独
+一个字在书签栏里认不出是什么，冠上「御製」才对得上原书。
+
+--short 只留篇名（序、奏議、卷一），--full-title 保留原卷名不动。
 
 需要 pikepdf（pip install pikepdf）。
 """
@@ -48,11 +57,12 @@ def read_map(path):
     return [(t, first[t]) for t in order]
 
 
-def short(title, prefixes):
+def strip_prefix(title, prefixes):
+    """→ (剥掉的书名, 剩下的篇名)。没有匹配的前缀就原样返回。"""
     for p in prefixes:
         if title.startswith(p) and len(title) > len(p):
-            return title[len(p):]
-    return title
+            return p, title[len(p):]
+    return '', title
 
 
 def main():
@@ -61,7 +71,9 @@ def main():
     ap.add_argument('pdf')
     ap.add_argument('bookmarks', help='<jobname>-bookmarks.txt')
     ap.add_argument('-o', '--out', default=None, help='默认原地改写')
-    ap.add_argument('--full-title', action='store_true', help='书签保留完整卷名')
+    ap.add_argument('--full-title', action='store_true', help='书签保留原卷名不动')
+    ap.add_argument('--short', action='store_true',
+                    help='只留篇名（序、奏議、卷一），不冠书名')
     ap.add_argument('--strip', default='欽定,御製,钦定,御制',
                     help='要剥掉的书名前缀首字，逗号分隔；实际剥的是「<首字>…」整个书名')
     a = ap.parse_args()
@@ -95,18 +107,36 @@ def main():
                     cands.update(h + cp[2:] for h in heads)
     prefixes = sorted(cands, key=len, reverse=True)
 
+    # 共有的书名：取各卷剥下来的前缀里最常见的那个（序作「御製…」是少数）
+    from collections import Counter
+    stripped = [strip_prefix(t, prefixes) for t in titles]
+    canon = ''
+    if not a.full_title and not a.short:
+        got = Counter(p for p, _ in stripped if p)
+        if got:
+            canon = got.most_common(1)[0][0]
+
+    labels = []
+    for (pre, rest), title in zip(stripped, titles):
+        if a.full_title:
+            labels.append(title)
+            continue
+        # 书名首二字与共有书名不同（「御製」vs「欽定」）时，把它留给篇名，
+        # 否则「序」单独一个字在书签栏里认不出是什么
+        if canon and pre and not canon.startswith(pre[:2]):
+            rest = pre[:2] + rest
+        labels.append(canon + rest)
+
     with pdf.open_outline() as ol:
         ol.root.clear()
-        for title, page in entries:
-            label = title if a.full_title else short(title, prefixes)
+        for label, (_, page) in zip(labels, entries):
             ol.root.append(pikepdf.OutlineItem(label, page - 1))
 
     out = a.out or a.pdf
     pdf.save(out)
     print('%s：%d 葉，写入 %d 条书签' % (out, n, len(entries)), file=sys.stderr)
-    for title, page in entries:
-        print('  p.%-5d %s' % (page, title if a.full_title else short(title, prefixes)),
-              file=sys.stderr)
+    for label, (_, page) in zip(labels, entries):
+        print('  p.%-5d %s' % (page, label), file=sys.stderr)
 
 
 if __name__ == '__main__':

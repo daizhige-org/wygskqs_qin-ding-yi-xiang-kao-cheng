@@ -18,8 +18,9 @@
 原掃描件是純 1-bit（只有 0 和 255，無反鋸齒），所以形態學處理乾淨：
 
   欄線 = 以長條結構元素對墨跡做開運算（橫、豎各一次）。結構元素長取邊長
-         的 1/25（約 67px），而單字筆畫最長約 40px，「一」「三」這類橫畫
-         夠不到門檻，不會被誤判
+         的 1/8（約 160px）—— 門檻要跨過卷首標題頁那幾個大字：「庫」「全」
+         「書」的中央豎筆有 100px 以上，取 1/25（約 51px）時會被誤判成欄線。
+         取 1/8 則大字筆畫全部保住，星表的細分隔線也仍在
   接線 = 再沿各自方向做閉運算，把被字壓斷的線接回來，並與原墨跡取交集，
          保證不憑空生出墨
   文字 = 墨跡減去欄線
@@ -50,7 +51,7 @@ BW    = [255, 255, 255, 0, 0, 0, 0, 0, 0]          # 紙白、欄線黑、文字
 COLOR = list(PAPER) + list(RULE) + list(INK)
 
 
-def separate(ink, long_frac=25, mend=15):
+def separate(ink, long_frac=8, mend=15):
     """墨跡布林陣列 → (欄線, 文字)。"""
     import numpy as np
     from scipy import ndimage as ndi
@@ -118,7 +119,7 @@ def main():
 
     c = sub.add_parser('colorize', help='就地把圖版分成朱欄與墨字（結果入庫）')
     c.add_argument('src_dir')
-    c.add_argument('--long-frac', type=int, default=25,
+    c.add_argument('--long-frac', type=int, default=8,
                    help='結構元素長 = 邊長 / 此值（越小越嚴，越不容易誤判筆畫）')
     c.add_argument('--mend', type=int, default=15, help='接回斷線的閉運算長度（px）')
 
