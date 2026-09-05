@@ -22,9 +22,18 @@ jobs:
       # 版式引擎（ltc-guji 文檔類）。取 main 而非最新 release：
       # v0.4.1 尚無「連續兩個正文塊不叠印」等修正，本書排不出來。
       LUATEX_CN_REF: main
-      # 正文字體，URL 與 SHA-256 取自 luatex-cn 的 scripts/font-manifest.json
+      # 正文字體三支互補，缺一即缺字。URL 與 SHA-256 取自 luatex-cn 的
+      # scripts/font-manifest.json；AR PL UKai 取 Debian 的字體包。
+      #   TW-Kai         URO 99.7% + Ext-A 100%，正文絕大多數字
+      #   TW-Kai-Ext-B   Ext-B 100% + Ext-C 98.6%，10 個考訂本字共 50 處
+      #   AR PL UKai TW  只為「龯」U+9FAF 一處 —— 它落在 TW-Kai 缺的那 0.3% URO 裡
       TW_KAI_URL: https://raw.githubusercontent.com/free-fonts-npm/TW-CNS11643-Fonts/de5bd2e37371798f996bac11ea8cf9d3a411749e/2026-05-05/Fonts_Kai/TW-Kai-98_1.ttf
       TW_KAI_SHA256: c206333edcc3c8c86ee547da4c78ad1c8f7ec2670a2b550a768532258f75806a
+      TW_KAI_EXTB_URL: https://raw.githubusercontent.com/free-fonts-npm/TW-CNS11643-Fonts/de5bd2e37371798f996bac11ea8cf9d3a411749e/2026-05-05/Fonts_Kai/TW-Kai-Ext-B-98_1.ttf
+      TW_KAI_EXTB_SHA256: 562d19fde56dfa52a3fed88a53154698e1d66e4b9c0a1faa9ba4ffa98e9d7a92
+      UKAI_DEB_URL: https://deb.debian.org/debian/pool/main/f/fonts-arphic-ukai/fonts-arphic-ukai_0.2.20080216.2-5_all.deb
+      UKAI_DEB_SHA256: b9db73184895b067f7911f9adbf3b137df99c2d4ec5425b4ad779a9834b7110b
+      UKAI_TTC_SHA256: cfc758e69386a21bade8cb3b373fda20d7f2fac6e8904ced2ded98588b63e274
 
     steps:
       - name: 記下 LuaTeX 版本
@@ -32,11 +41,13 @@ jobs:
           luatex --version | head -2
           lualatex --version | head -2
 
-      - name: 補齊 curl / git
+      - name: 補齊 curl / git / ar
         run: |
-          if ! command -v curl >/dev/null || ! command -v git >/dev/null; then
+          # ar 與 xz 用來拆 Debian 的字體包
+          if ! command -v curl >/dev/null || ! command -v git >/dev/null \
+             || ! command -v ar >/dev/null || ! command -v xz >/dev/null; then
             apt-get update
-            apt-get install -y --no-install-recommends curl git ca-certificates
+            apt-get install -y --no-install-recommends curl git ca-certificates binutils xz-utils
           fi
 
       - uses: actions/checkout@v4
@@ -58,13 +69,25 @@ jobs:
           texhash "$TEXMFHOME" || true
           kpsewhich ltc-guji.cls
 
-      - name: 裝 TW-Kai
+      - name: 裝字體
         run: |
           set -eux
           FONTDIR="$TEXMFHOME/fonts/truetype/luatex-cn"
           mkdir -p "$FONTDIR"
+
           curl -fsSL -o "$FONTDIR/TW-Kai-98_1.ttf" "$TW_KAI_URL"
           echo "$TW_KAI_SHA256  $FONTDIR/TW-Kai-98_1.ttf" | sha256sum -c -
+
+          curl -fsSL -o "$FONTDIR/TW-Kai-Ext-B-98_1.ttf" "$TW_KAI_EXTB_URL"
+          echo "$TW_KAI_EXTB_SHA256  $FONTDIR/TW-Kai-Ext-B-98_1.ttf" | sha256sum -c -
+
+          curl -fsSL -o /tmp/ukai.deb "$UKAI_DEB_URL"
+          echo "$UKAI_DEB_SHA256  /tmp/ukai.deb" | sha256sum -c -
+          ( cd /tmp && ar x ukai.deb data.tar.xz \
+            && tar xf data.tar.xz ./usr/share/fonts/truetype/arphic/ukai.ttc )
+          cp /tmp/usr/share/fonts/truetype/arphic/ukai.ttc "$FONTDIR/"
+          echo "$UKAI_TTC_SHA256  $FONTDIR/ukai.ttc" | sha256sum -c -
+
           luaotfload-tool --update --force || true
 
       - name: 排版
