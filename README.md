@@ -10,6 +10,7 @@
 
 ```
 欽定儀象考成.tex   由解碼工具自版式記錄生成，勿手改
+tools/             pdf_bookmarks.py，給排好的 PDF 加書籤
 img/               710 個 PNG，原書的圖版與插圖
                    0281.png 為葉 281 的圖；0281_1.png 為同葉的第二塊圖
 README.md          用法、校驗結果、私用區碼位一覽、來源與權利
@@ -36,11 +37,24 @@ LICENSE            AGPL-3.0 全文
 lualatex 欽定儀象考成.tex
 ```
 
-排出 875 葉，版心居中，一葉十六行。
+排出 875 葉，版心居中，一葉十六行。再加書籤（需 `pip install pikepdf`）：
+
+```bash
+python3 tools/pdf_bookmarks.py 欽定儀象考成.pdf 欽定儀象考成-bookmarks.txt
+```
+
+`-bookmarks.txt` 是排版時順帶寫出的，每葉一行「絕對頁碼 | 卷名」——
+`.tex` 導言區掛了個 `shipout/before` 鉤子逐葉記下。共 37 條書籤：序、奏議、
+職名、目録、提要、卷首上下、卷一至卷三十。
+
+**書籤是後處理加的，不是 hyperref。** `\pdfbookmark` 的錨點會被 luatex-cn 的
+網格引擎當成內容 —— 實測整本從 875 葉變 876 葉。版式復刻不能為了書籤改版面，
+所以改成先排版、再往 catalog 裡寫 `/Outlines`，頁面內容一個位元組都不動。
 
 `.github/workflows/build.yml` 在 `texlive/texlive:latest`（每日自上游重建）裡
 以當天的 LuaTeX 排一遍，PDF 與日誌放進 artifacts，保留 30 天。它同時把兩件
-靜默失敗變成硬錯誤：日誌出現 `Missing character`，或葉數不是 875。
+靜默失敗變成硬錯誤：日誌出現 `Missing character`，或葉數不是 875；加完書籤後
+再驗一次「37 條書籤 / 875 葉」。
 
 luatex-cn 須取 `main`（最新 release v0.4.1 尚無本書所需的修正），且要裝進
 `TEXMFHOME/tex/lualatex/`：放進 `tex/latex/` 時 `.lua` 找不著，版式引擎會

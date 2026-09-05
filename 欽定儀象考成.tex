@@ -36,6 +36,22 @@
 \newcommand\ltc@add[1]{%
   \expandafter\gdef\expandafter\ltc@nextimg\expandafter{\ltc@nextimg #1}}
 \makeatother
+% 逐葉記下当前卷名，写成 <jobname>-bookmarks.txt，供 tools/pdf_bookmarks.py
+% 给排好的 PDF 加书签。只写文件、不往页面流里放任何节点，所以版面与页数
+% 分毫不动 —— 这也是不用 hyperref 的原因：\pdfbookmark 的锚点会被网格引擎
+% 当成内容，实测整本多出一页。
+% 卷名取自 ltc-guji 的 \chapter 所设的元数据；每个 \chapter 前都有
+% \clearpage，上一卷的页早已送出，故 shipout 时读到的必是本页所属的卷。
+\newcount\ltcAbsPage
+\newwrite\ltcBmkFile
+\immediate\openout\ltcBmkFile=\jobname-bookmarks.txt
+\ExplSyntaxOn
+\AddToHook{shipout/before}{%
+  \global\advance\ltcAbsPage by 1
+  \immediate\write\ltcBmkFile{%
+    \the\ltcAbsPage | \tl_use:N \l__luatexcn_metadata_chapter_title_tl}%
+}
+\ExplSyntaxOff
 \title{欽定四庫全書}
 \begin{document}
 \begin{正文}

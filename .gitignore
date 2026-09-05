@@ -8,3 +8,6 @@
 
 # macOS
 .DS_Store
+
+# 書籤中間檔
+*-bookmarks.txt

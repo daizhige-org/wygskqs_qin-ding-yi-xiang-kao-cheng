@@ -41,14 +41,14 @@ jobs:
           luatex --version | head -2
           lualatex --version | head -2
 
-      - name: 補齊 curl / git / ar
+      - name: 補齊 curl / git / ar / pikepdf
         run: |
-          # ar 與 xz 用來拆 Debian 的字體包
-          if ! command -v curl >/dev/null || ! command -v git >/dev/null \
-             || ! command -v ar >/dev/null || ! command -v xz >/dev/null; then
-            apt-get update
-            apt-get install -y --no-install-recommends curl git ca-certificates binutils xz-utils
-          fi
+          # ar 與 xz 用來拆 Debian 的字體包；pikepdf 用來加書籤。
+          # 走 apt 而非 pip：Debian 的 python3 是 externally-managed（PEP 668），
+          # pip install 會被擋。
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            curl git ca-certificates binutils xz-utils python3 python3-pikepdf
 
       - uses: actions/checkout@v4
 
@@ -108,6 +108,21 @@ jobs:
           PAGES=$(sed -n 's/.*Output written on .*(\([0-9]*\) pages.*/\1/p' 欽定儀象考成.log)
           echo "排出 $PAGES 葉"
           test "$PAGES" = 875
+
+      - name: 加書籤
+        run: |
+          set -eu
+          python3 tools/pdf_bookmarks.py 欽定儀象考成.pdf 欽定儀象考成-bookmarks.txt
+
+      # 書籤是後處理加的，頁數與內容都不該變；37 = 序 + 奏議 + 職名 + 目録
+      # + 提要 + 卷首上下 + 卷一至卷三十。
+      - name: 查書籤
+        run: |
+          set -eu
+          N=$(python3 -c "import pikepdf,sys; p=pikepdf.open('欽定儀象考成.pdf'); \
+              print(len(list(p.open_outline().root)), len(p.pages))")
+          echo "書籤數 / 葉數：$N"
+          test "$N" = "37 875"
 
       - uses: actions/upload-artifact@v4
         if: always()
