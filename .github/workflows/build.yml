@@ -43,12 +43,12 @@ jobs:
 
       - name: 補齊 curl / git / ar / pikepdf
         run: |
-          # ar 與 xz 用來拆 Debian 的字體包；pikepdf 用來加書籤。
+          # ar 與 xz 用來拆 Debian 的字體包；pikepdf 用來加書籤；make 跑 Makefile。
           # 走 apt 而非 pip：Debian 的 python3 是 externally-managed（PEP 668），
           # pip install 會被擋。
           apt-get update
           apt-get install -y --no-install-recommends \
-            curl git ca-certificates binutils xz-utils python3 python3-pikepdf
+            curl git ca-certificates binutils xz-utils make python3 python3-pikepdf
 
       - uses: actions/checkout@v4
 
@@ -90,14 +90,14 @@ jobs:
 
           luaotfload-tool --update --force || true
 
-      - name: 排版
-        run: lualatex -interaction=nonstopmode -halt-on-error 欽定儀象考成.tex
+      - name: 排版整本
+        run: make 欽定儀象考成.pdf
 
       # 三項靜默失敗轉為硬錯誤：
       #   缺字型時 LuaTeX 照樣編譯成功，字直接消失，只留 Missing character 警告
       #   葉數必須是 875
       #   書籤 37 條 = 序 + 奏議 + 職名 + 目録 + 提要 + 卷首上下 + 卷一至卷三十
-      - name: 加書籤並查驗
+      - name: 查驗整本
         run: |
           set -eu
           if grep -i "Missing character" 欽定儀象考成.log; then
@@ -108,11 +108,37 @@ jobs:
           echo "排出 $PAGES 葉，無缺字"
           test "$PAGES" = 875
 
-          python3 tools/pdf_bookmarks.py 欽定儀象考成.pdf 欽定儀象考成-bookmarks.txt
           N=$(python3 -c "import pikepdf; p=pikepdf.open('欽定儀象考成.pdf'); \
               print(len(list(p.open_outline().root)), len(p.pages))")
           echo "書籤數 / 葉數：$N"
           test "$N" = "37 875"
+
+      # 一冊一個 PDF。各冊互不相干，並行排。
+      - name: 排版分冊
+        run: make -j"$(nproc)" parts
+
+      # 每冊的葉數該等於它的葉記數加一葉標題圖版，書籤數該等於它的 \chapter* 數；
+      # 十六冊合計仍須是 875 葉、37 條書籤 —— 分冊不能多一葉也不能少一葉。
+      - name: 查驗分冊
+        run: |
+          set -eu
+          PAGES=0; MARKS=0
+          for TEX in parts/part*.tex; do
+            N=${TEX#parts/part}; N=${N%.tex}
+            if grep -i "Missing character" "欽定儀象考成-$N.log"; then
+              echo "::error::第 $N 冊日誌裡有 Missing character"
+              exit 1
+            fi
+            WANT_PAGES=$(( $(grep -c '^% ---- 册' "$TEX") + $(grep -c 'thispagestyle{empty}' "$TEX") ))
+            WANT_MARKS=$(grep -c '^\\chapter\*' "$TEX")
+            GOT=$(python3 -c "import pikepdf, sys; p = pikepdf.open(sys.argv[1]); \
+                print(len(list(p.open_outline().root)), len(p.pages))" "欽定儀象考成-$N.pdf")
+            echo "第 $N 冊：書籤數 / 葉數 $GOT，應為 $WANT_MARKS $WANT_PAGES"
+            test "$GOT" = "$WANT_MARKS $WANT_PAGES"
+            PAGES=$((PAGES + WANT_PAGES)); MARKS=$((MARKS + WANT_MARKS))
+          done
+          echo "十六冊合計：$MARKS 條書籤 / $PAGES 葉"
+          test "$MARKS $PAGES" = "37 875"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -121,5 +147,15 @@ jobs:
           path: |
             欽定儀象考成.pdf
             欽定儀象考成.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 欽定儀象考成-分冊
+          path: |
+            欽定儀象考成-*.pdf
+            欽定儀象考成-*.log
           if-no-files-found: warn
           retention-days: 30

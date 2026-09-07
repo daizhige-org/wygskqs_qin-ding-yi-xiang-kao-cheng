@@ -54,20 +54,31 @@
 \ExplSyntaxOff
 \title{欽定四庫全書}
 \begin{document}
-\input{parts/part01}
-\input{parts/part02}
-\input{parts/part03}
-\input{parts/part04}
-\input{parts/part05}
-\input{parts/part06}
-\input{parts/part07}
-\input{parts/part08}
-\input{parts/part09}
-\input{parts/part10}
-\input{parts/part11}
-\input{parts/part12}
-\input{parts/part13}
-\input{parts/part14}
-\input{parts/part15}
-\input{parts/part16}
+% 正文按原書分冊，一冊一檔在 parts/ 下：每檔以 \chapter* 起，接整葉標題圖版，
+% 再是該冊各卷。整本與單冊用同一個主檔：
+%   整本  lualatex 欽定儀象考成.tex
+%   單冊  lualatex -jobname=欽定儀象考成-03 "\def\ltcPart{03}\input{欽定儀象考成}"
+% 單冊能獨立排出，因為每冊都自 \clearpage 起、自帶 \SetPageNumber，而書的
+% 基本格點（8 行 21 字）正是 ltc-guji 的預設；卷首下改 9 行 20 字又改回，
+% 也都在同一冊之內。整本仍是逐冊 \input，各冊的頁面與單冊排出的逐葉相同。
+\ifdefined\ltcPart
+  \input{parts/part\ltcPart}
+\else
+  \input{parts/part01}
+  \input{parts/part02}
+  \input{parts/part03}
+  \input{parts/part04}
+  \input{parts/part05}
+  \input{parts/part06}
+  \input{parts/part07}
+  \input{parts/part08}
+  \input{parts/part09}
+  \input{parts/part10}
+  \input{parts/part11}
+  \input{parts/part12}
+  \input{parts/part13}
+  \input{parts/part14}
+  \input{parts/part15}
+  \input{parts/part16}
+\fi
 \end{document}
